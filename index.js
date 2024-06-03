@@ -4,6 +4,8 @@ const cors = require('cors');
 //const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const port = process.env.PORT || 5000;
+const { MongoClient, ServerApiVersion } = require('mongodb');
+
 
 
 
@@ -13,7 +15,6 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kc8fcbi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -27,6 +28,37 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+
+   
+    const categoryCollection = client.db("mediDB").collection("category");
+    const cartCollection = client.db("mediDB").collection("carts");
+
+    //get category
+    app.get('/category',async(req, res) => {
+      const result = await categoryCollection.find().toArray();
+      res.send(result);
+    } );
+
+
+    //carts collection
+    app.get('/carts',async(req, res) => {
+      const result = await cartCollection.find().toArray();
+      res.send(result);
+    } );
+  
+
+    app.post('/carts', async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartCollection.insertOne(cartItem);
+      res.send(result);
+    } );
+
+
+
+
+
+
+
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     // Send a ping to confirm a successful connection
