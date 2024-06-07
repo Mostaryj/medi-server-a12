@@ -25,6 +25,20 @@ async function run() {
   try {
     const categoryCollection = client.db("mediDB").collection("category");
     const cartCollection = client.db("mediDB").collection("carts");
+    const userCollection = client.db("mediDB").collection("users");
+
+
+    //user related
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+
+
+
+
 
     //get category
     app.get("/category", async (req, res) => {
@@ -60,60 +74,15 @@ async function run() {
     });
 
     //for increase btn
- 
 
-   // POST method to increase the quantity of an item in the cart
-  //  app.post("/carts/increase/:id", async (req, res) => {
-  //   const id = req.params.id;
-  //   const quantity = req.body.quantity; // Quantity to increase
-  
-  //   try {
-  //     const item = await cartCollection.findOne({ _id: new ObjectId(id) });
-  //     if (!item) {
-  //       return res.status(404).json({ message: "Item not found in cart" });
-  //     }
-  
-  //     // Proceed to the PUT route to increase the quantity
-  //     const result = await cartCollection.updateOne(
-  //       { _id: new ObjectId(id) },
-  //       { $inc: { quantity: quantity } }
-  //     );
-  
-  //     if (result.modifiedCount > 0) {
-  //       res.status(200).json({ message: "Quantity increased successfully" });
-  //     } else {
-  //       res.status(404).json({ message: "Item not found in cart" });
-  //     }
-  //   } catch (error) {
-  //     console.error("Error increasing quantity:", error);
-  //     res.status(500).json({ message: "Failed to increase quantity" });
-  //   }
-  // });
-  
 
-  app.put("/carts/increase/:id", async (req, res) => {
-    const id = req.params.id;
-    const quantity = req.body.quantity; // Quantity to increase
-  
-    try {
-      const result = await cartCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $inc: { quantity: quantity } }
-      );
-  
-      if (result.modifiedCount > 0) {
-        res.status(200).json({ message: "Quantity increased successfully" });
-      } else {
-        res.status(404).json({ message: "Item not found in cart" });
-      }
-    } catch (error) {
-      console.error("Error increasing quantity:", error);
-      res.status(500).json({ message: "Failed to increase quantity" });
-    }
-  });
-  
+    app.post("/carts/increase/:id", async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartCollection.insertOne(cartItem);
+      res.send(result);
+    });
 
-  
+
 
 
 
