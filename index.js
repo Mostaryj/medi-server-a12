@@ -27,16 +27,43 @@ async function run() {
     const cartCollection = client.db("mediDB").collection("carts");
     const userCollection = client.db("mediDB").collection("users");
 
-
     //user related
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
 
+    // Route to update user role
+    app.patch("/users/:id/role", async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
 
+      if (!["user", "seller", "admin"].includes(role)) {
+        return res.status(400).send({ message: "Invalid role" });
+      }
 
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: role,
+        },
+      };
+
+      const result = await userCollection.updateOne(filter, updateDoc);
+
+      if (result.modifiedCount > 0) {
+        res.send({ message: "Role updated successfully" });
+      } else {
+        res.status(404).send({ message: "User not found" });
+      }
+    });
+//user end
 
 
 
@@ -45,11 +72,6 @@ async function run() {
       const result = await categoryCollection.find().toArray();
       res.send(result);
     });
-
-
-
-
-
 
     //carts collection
     app.get("/carts", async (req, res) => {
@@ -75,16 +97,11 @@ async function run() {
 
     //for increase btn
 
-
     app.post("/carts/increase/:id", async (req, res) => {
       const cartItem = req.body;
       const result = await cartCollection.insertOne(cartItem);
       res.send(result);
     });
-
-
-
-
 
     // Decrease item quantity
     app.delete("/carts/decrease/:id", async (req, res) => {
@@ -94,29 +111,18 @@ async function run() {
       res.send(result);
     });
 
-
-// Clear cart
-app.delete("/carts", async (req, res) => {
-  try {
-    const result = await cartCollection.deleteMany({});
-    res.send(result);
-  } catch (error) {
-    console.error("Error clearing cart:", error);
-    res.status(500).send({ message: "Failed to clear cart" });
-  }
-});
+    // Clear cart
+    app.delete("/carts", async (req, res) => {
+      try {
+        const result = await cartCollection.deleteMany({});
+        res.send(result);
+      } catch (error) {
+        console.error("Error clearing cart:", error);
+        res.status(500).send({ message: "Failed to clear cart" });
+      }
+    });
 
     // cart collection end
-
-
-
-
-
-
-
-
-
-
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
