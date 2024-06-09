@@ -97,19 +97,40 @@ async function run() {
 
     //for increase btn
 
-    app.post("/carts/increase/:id", async (req, res) => {
-      const cartItem = req.body;
-      const result = await cartCollection.insertOne(cartItem);
-      res.send(result);
-    });
+    app.put('/carts/increase/:id', async (req, res) => {
+      try {
+        const result = await cartCollection.findOneAndUpdate(
+          {_id: new ObjectId (req.params.id)},
+          {$inc: {count: 1}},
+          {returnOriginal: false}
+        );
+        res.json(result)
+        
+      }catch(error) {
+        res.status(500).send(error)
+      }
 
-    // Decrease item quantity
-    app.delete("/carts/decrease/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await cartCollection.deleteOne(query);
-      res.send(result);
-    });
+    })
+
+
+    //decrease
+    app.put('/carts/decrease/:id', async (req, res) => {
+      try {
+        const result = await cartCollection.findOneAndUpdate(
+          {_id: new ObjectId (req.params.id)},
+          {$inc: {count: -1}},
+          {returnOriginal: false}
+        );
+        res.json(result)
+        
+      }catch(error) {
+        res.status(500).send(error)
+      }
+
+    })
+
+
+
 
     // Clear cart
     app.delete("/carts", async (req, res) => {
