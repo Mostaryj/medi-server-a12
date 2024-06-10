@@ -26,6 +26,61 @@ async function run() {
     const categoryCollection = client.db("mediDB").collection("category");
     const cartCollection = client.db("mediDB").collection("carts");
     const userCollection = client.db("mediDB").collection("users");
+    const sliderCollection = client.db("mediDB").collection("slider");
+
+// Create a new slider request
+app.post("/slider", async (req, res) => {
+  const { sellerEmail, medicineImage, description } = req.body;
+  try {
+      const result = await sliderCollection.insertOne({ sellerEmail, medicineImage, description, isUsedInSlider: false });
+      res.send(result);
+  } catch (error) {
+      res.status(500).send({ error: 'Error creating slider request' });
+  }
+});
+
+
+// Get slider requests by seller email
+app.get("/slider/:email", async (req, res) => {
+  const email = req.params.email;
+  try {
+      const sliderRequests = await sliderCollection.find({ sellerEmail: email }).toArray();
+      res.send(sliderRequests);
+  } catch (error) {
+      res.status(500).send({ error: 'Error fetching slider requests' });
+  }
+});
+
+
+// Update slider request status
+app.put("/slider/:id", async (req, res) => {
+  const id = req.params.id;
+  const { isUsedInSlider } = req.body;
+  try {
+      const result = await sliderCollection.updateOne({ _id: new ObjectId(id) }, { $set: { isUsedInSlider } });
+      res.send(result);
+  } catch (error) {
+      res.status(500).send({ error: 'Error updating slider status' });
+  }
+});
+
+// Get all slider requests (for admin)
+app.get("/slider", async (req, res) => {
+  try {
+      const sliderRequests = await sliderCollection.find().toArray();
+      res.send(sliderRequests);
+  } catch (error) {
+      res.status(500).send({ error: 'Error fetching slider requests' });
+  }
+});
+
+
+
+
+
+
+
+
 
     //user related
     app.get("/users", async (req, res) => {
@@ -89,6 +144,16 @@ app.post("/users/role", async (req, res) => {
       const result = await categoryCollection.find().toArray();
       res.send(result);
     });
+
+
+
+    //
+    app.get("/category/:email", async (req, res) => {
+      const email = req.params.email; // Use req.params to access route parameters
+      const query = { seller_email: email };
+      const result = await categoryCollection.find(query).toArray();
+      res.send(result);
+  });
 
     app.post("/category", async (req, res) => {
       const item = req.body;
