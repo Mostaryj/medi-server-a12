@@ -63,6 +63,23 @@ async function run() {
         res.status(404).send({ message: "User not found" });
       }
     });
+
+
+
+    // Route to fetch user role by email
+app.post("/users/role", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).send({ message: "Email is required" });
+  }
+  const user = await userCollection.findOne({ email });
+  if (!user) {
+    return res.status(404).send({ message: "User not found" });
+  }
+
+  res.send({ role: user.role });
+});
 //user end
 
 
@@ -72,6 +89,14 @@ async function run() {
       const result = await categoryCollection.find().toArray();
       res.send(result);
     });
+
+    app.post("/category", async (req, res) => {
+      const item = req.body;
+      const result = await categoryCollection.insertOne(item);
+      res.send(result);
+    });
+
+
 
     //carts collection
     app.get("/carts", async (req, res) => {
@@ -83,6 +108,7 @@ async function run() {
 
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
+      cartItem.count = cartItem.count || 1; 
       const result = await cartCollection.insertOne(cartItem);
       res.send(result);
     });
@@ -112,22 +138,34 @@ async function run() {
 
     })
 
+   
+
 
     //decrease
     app.put('/carts/decrease/:id', async (req, res) => {
       try {
-        const result = await cartCollection.findOneAndUpdate(
-          {_id: new ObjectId (req.params.id)},
-          {$inc: {count: -1}},
-          {returnOriginal: false}
-        );
-        res.json(result)
+        const item = await cartCollection.findOne(
+          {_id: new ObjectId (req.params.id)} )
+
+          if(item.count > 1) {
+
+            const result = await cartCollection.findOneAndUpdate(
+              {_id: new ObjectId (req.params.id)},
+              {$inc: {count: -1}},
+              {returnOriginal: false}
+            );
+            res.json(result);
+          }else{
+            res.status(400).json({message: 'count cannot be less than 1'})
+          }
+         
+      
         
       }catch(error) {
         res.status(500).send(error)
       }
 
-    })
+    });
 
 
 
