@@ -3,6 +3,8 @@ const app = express();
 const cors = require("cors");
 const jwt = require('jsonwebtoken');
 require("dotenv").config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 //
@@ -53,6 +55,7 @@ async function run() {
     const cartCollection = client.db("mediDB").collection("carts");
     const userCollection = client.db("mediDB").collection("users");
     const sliderCollection = client.db("mediDB").collection("slider");
+    const paymentCollection = client.db("mediDB").collection("payments");
 
 
 
@@ -94,41 +97,21 @@ const verifyToken = (req, res, next) => {
 
 
 
-// Create a new slider request
-app.post("/slider", async (req, res) => {
-  const { sellerEmail, medicineImage, description } = req.body;
-  try {
-      const result = await sliderCollection.insertOne({ sellerEmail, medicineImage, description, isUsedInSlider: false });
-      res.send(result);
-  } catch (error) {
-      res.status(500).send({ error: 'Error creating slider request' });
-  }
-});
+//slider  
 
 
-// Get slider requests by seller email
-app.get("/slider/:email", async (req, res) => {
-  const email = req.params.email;
-  try {
-      const sliderRequests = await sliderCollection.find({ sellerEmail: email }).toArray();
-      res.send(sliderRequests);
-  } catch (error) {
-      res.status(500).send({ error: 'Error fetching slider requests' });
-  }
-});
+
+app.get("/slider/:email",async(req,res)=>{
+  const email=req.params.email;
+   console.log(email);
+  const query ={email:email};
+  // console.log(query);
+  const result =await sliderCollection.find(query).toArray();
+  console.log(result);
+    res.send(result);
+})
 
 
-// Update slider request status
-app.put("/slider/:id", async (req, res) => {
-  const id = req.params.id;
-  const { isUsedInSlider } = req.body;
-  try {
-      const result = await sliderCollection.updateOne({ _id: new ObjectId(id) }, { $set: { isUsedInSlider } });
-      res.send(result);
-  } catch (error) {
-      res.status(500).send({ error: 'Error updating slider status' });
-  }
-});
 
 // Get all slider requests (for admin)
 app.get("/slider", async (req, res) => {
@@ -139,6 +122,9 @@ app.get("/slider", async (req, res) => {
       res.status(500).send({ error: 'Error fetching slider requests' });
   }
 });
+
+
+
 
 
 
@@ -161,8 +147,6 @@ app.get("/slider", async (req, res) => {
 
 
 
-
-
     //user related
     app.get("/users",verifyToken,verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
@@ -175,7 +159,7 @@ app.get("/slider", async (req, res) => {
       res.send(result);
     });
 
-    // Route to update user role
+    //  update user role
     app.patch("/users/:id/role",verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const { role } = req.body;
@@ -202,7 +186,7 @@ app.get("/slider", async (req, res) => {
 
 
 
-    // Route to fetch user role by email
+    //  user role by email
 app.post("/users/role", async (req, res) => {
   const { email } = req.body;
 
@@ -215,6 +199,12 @@ app.post("/users/role", async (req, res) => {
   }
 
   res.send({ role: user.role });
+});
+
+//edited
+app.get("/users/:email", async (req, res) => {
+  const result = await userCollection.findOne({email: req.params.email});
+  res.send(result);
 });
 //user end
 
@@ -392,6 +382,259 @@ app.post("/users/role", async (req, res) => {
     });
 
     // cart collection end
+
+    
+    //payment intent
+    app.post('/payment-intent', async (req, res) => {
+      const {price} = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+
+    //payment
+
+     //remove cart item after payment
+     app.post('/payments',async(req,res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+      //delete each item from the cart
+       console.log('payment info', payment);
+       const query = {_id: {
+        $in: payment.cartIds.map(id => new ObjectId(id))
+       }};
+
+       const deleteResult = await cartCollection.deleteMany(query)
+       res.send({paymentResult, deleteResult})
+    })
+
+
+        //get payment data
+        app.get('/payments/:email',verifyToken, async(req, res) => {
+          const query = {email: req.params.email}
+          if(req.params.email !== req.decoded.email){
+            return res.status(403).send({message: 'forbidden access'})
+          }
+          const result = await paymentCollection.find(query).toArray();
+          res.send(result)
+        })
+
+
+
+        // Get all payments for admin
+    app.get('/payments', async (req, res) => {
+    try {
+      const payments = await paymentCollection.find().toArray();
+      res.send(payments);
+    } catch (error) {
+      res.status(500).send({ message: 'Internal Server Error' });
+   }
+   });
+
+
+
+   // Update payment status
+app.patch('/payments/:id', async (req, res) => {
+  const paymentId = req.params.id;
+  const updatedStatus = req.body.status;
+
+  try {
+      const result = await paymentCollection.updateOne(
+          { _id: new ObjectId(paymentId) },
+          { $set: { status: updatedStatus } }
+      );
+      res.send(result);
+  } catch (error) {
+      res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+
+    //analytics
+app.get('/admin-stats', verifyToken, verifyAdmin, async(req, res) => { 
+  try {
+    const users = await userCollection.estimatedDocumentCount();
+    const menuItems = await categoryCollection.estimatedDocumentCount();
+    const orders = await paymentCollection.estimatedDocumentCount();
+
+    const revenueResult = await paymentCollection.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $toDouble: '$price' } }
+        }
+      }
+    ]).toArray();
+    const revenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
+
+    const pendingResult = await paymentCollection.aggregate([
+      {
+        $match: { status: 'pending' }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPending: { $sum: { $toDouble: '$price' } }
+        }
+      }
+    ]).toArray();
+    const totalPending = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
+
+    res.send({
+      users,
+      menuItems,
+      orders,
+      revenue,
+      totalPending
+    });
+  } catch (error) {
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+//sales
+app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const sales = await paymentCollection.find().toArray();
+    res.send(sales);
+  } catch (error) {
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+
+
+
+// Get total paid and pending revenue for seller
+app.get('/seller-sales/:email', verifyToken, async (req, res) => {
+  const sellerEmail = req.decoded.seller_email;
+  console.log(sellerEmail);
+
+  try {
+      const paidResult = await paymentCollection.aggregate([
+          {
+              $match: {
+                  sellerEmail,
+                  status: 'paid' 
+              }
+          },
+          {
+              $group: {
+                  _id: null,
+                  totalPaid: {
+                      $sum: {
+                          $toDouble: '$price' 
+                      }
+                  }
+              }
+          }
+      ]).toArray();
+
+      const pendingResult = await paymentCollection.aggregate([
+          {
+              $match: {
+                  sellerEmail,
+                  status: 'pending' 
+              }
+          },
+          {
+              $group: {
+                  _id: null,
+                  totalPending: {
+                      $sum: {
+                          $toDouble: '$price' 
+                      }
+                  }
+              }
+          }
+      ]).toArray();
+
+      const totalPaid = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
+      const totalPending = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
+
+      res.send({ totalPaid, totalPending });
+  } catch (error) {
+      console.error('Error fetching sales data:', error);
+      res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
+
+// app.get('/seller-sales', verifyToken, async (req, res) => {
+//   const sellerEmail = req.decoded.seller_email;
+//   try {
+//       const paidResult = await paymentCollection.aggregate([
+//           {
+//               $match: {
+//                   sellerEmail,
+//                   status: 'paid' 
+//               }
+//           },
+//           {
+//               $group: {
+//                   _id: null,
+//                   totalPaid: {
+//                       $sum: {
+//                           $toDouble: '$price' 
+//                       }
+//                   }
+//               }
+//           }
+//       ]).toArray();
+
+//       const pendingResult = await paymentCollection.aggregate([
+//           {
+//               $match: {
+//                   sellerEmail,
+//                   status: 'pending' 
+//               }
+//           },
+//           {
+//               $group: {
+//                   _id: null,
+//                   totalPending: {
+//                       $sum: {
+//                           $toDouble: '$price' 
+//                       }
+//                   }
+//               }
+//           }
+//       ]).toArray();
+
+//       const totalPaid = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
+//       const totalPending = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
+
+//       res.send({ totalPaid, totalPending });
+//   } catch (error) {
+//       console.error('Error fetching sales data:', error);
+//       res.status(500).send({ error: 'Internal Server Error' });
+//   }
+// });
+
+
+
+
+//  payments for a specific seller
+app.get("/seller-payments/:email", async (req, res) => {
+  const { seller_email } = req.params; 
+  try {
+    const payments = await paymentCollection.find({ sellerEmail: seller_email }).toArray();
+    res.send(payments);
+  } catch (error) {
+    console.error('Error fetching seller payments:', error);
+    res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
+
+
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
