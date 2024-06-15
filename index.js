@@ -543,15 +543,6 @@ app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
 
 
 
-//sales
-// app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
-//   try {
-//     const sales = await paymentCollection.find().toArray();
-//     res.send(sales);
-//   } catch (error) {
-//     res.status(500).send({ message: 'Internal Server Error' });
-//   }
-// });
 
 
 
