@@ -24,7 +24,13 @@ app.use('/uploads', express.static(uploadsDir));
 
 
 //middleware
-app.use(cors());
+app.use(
+  cors({
+   origin: ['http://localhost:5173',
+           'https://medi-corner-22.web.app',
+           'https://medi-corner-22.firebaseapp.com'],
+})
+);
 app.use(express.json());
 //
 app.use(express.urlencoded({ extended: true })); 
@@ -98,33 +104,59 @@ const verifyToken = (req, res, next) => {
 
 
 //slider  
-
+// advertisement collection
+app.post("/slider",async(req,res)=>{
+  const advertisement=req.body;
+  console.log(advertisement);
+  const result=await sliderCollection.insertOne(advertisement);
+  res.send(result)
+})
 
 
 app.get("/slider/:email",async(req,res)=>{
   const email=req.params.email;
-   console.log(email);
+  //  console.log(email,'118');
   const query ={email:email};
   // console.log(query);
   const result =await sliderCollection.find(query).toArray();
-  console.log(result);
+  // console.log(result,'122');
     res.send(result);
 })
 
 
 
-// Get all slider requests (for admin)
-app.get("/slider", async (req, res) => {
-  try {
-      const sliderRequests = await sliderCollection.find().toArray();
-      res.send(sliderRequests);
-  } catch (error) {
-      res.status(500).send({ error: 'Error fetching slider requests' });
+app.get("/slider",async(req,res)=>{
+  const result =await sliderCollection.find().toArray();
+    res.send(result);
+})
+
+
+app.patch("/slider/approve/:id",verifyToken,verifyAdmin,async(req,res)=>{
+  const id=req.params.id;
+  console.log(id);
+  const queary={_id:new ObjectId(id)};
+  const updateddoc={
+    $set:{
+      status:"approve"
+    }
   }
-});
+  const result =await sliderCollection.updateOne(queary,updateddoc);
+  res.send(result)
+})
+app.patch("/slider/pending/:id",verifyToken,verifyAdmin,async(req,res)=>{
+  const id=req.params.id;
+  console.log(id);
+  const queary={_id:new ObjectId(id)};
+  const updateddoc={
+    $set:{
+      status:"pending"
+    }
+  }
+  const result =await sliderCollection.updateOne(queary,updateddoc);
+  res.send(result)
+})
 
-
-
+//slider end
 
 
 
@@ -280,7 +312,7 @@ app.get("/users/:email", async (req, res) => {
 
     //
     app.get("/category/:email", async (req, res) => {
-      const email = req.params.email; // Use req.params to access route parameters
+      const email = req.params.email;
       const query = { seller_email: email };
       const result = await categoryCollection.find(query).toArray();
       res.send(result);
@@ -458,22 +490,28 @@ app.patch('/payments/:id', async (req, res) => {
 
 
     //analytics
-app.get('/admin-stats', verifyToken, verifyAdmin, async(req, res) => { 
+
+app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const users = await userCollection.estimatedDocumentCount();
     const menuItems = await categoryCollection.estimatedDocumentCount();
     const orders = await paymentCollection.estimatedDocumentCount();
 
-    const revenueResult = await paymentCollection.aggregate([
+    const paidResult = await paymentCollection.aggregate([
+      {
+        $match: { status: 'paid' }
+      },
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: { $toDouble: '$price' } }
+          totalPaid: { $sum: { $toDouble: '$price' } }
         }
       }
     ]).toArray();
-    const revenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
 
+    const totalPaid = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
+
+   
     const pendingResult = await paymentCollection.aggregate([
       {
         $match: { status: 'pending' }
@@ -491,23 +529,29 @@ app.get('/admin-stats', verifyToken, verifyAdmin, async(req, res) => {
       users,
       menuItems,
       orders,
-      revenue,
+      totalPaid, 
       totalPending
     });
   } catch (error) {
+    console.error('Error fetching admin stats:', error);
     res.status(500).send({ message: 'Internal Server Error' });
   }
 });
 
+
+
+
+
+
 //sales
-app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const sales = await paymentCollection.find().toArray();
-    res.send(sales);
-  } catch (error) {
-    res.status(500).send({ message: 'Internal Server Error' });
-  }
-});
+// app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+//   try {
+//     const sales = await paymentCollection.find().toArray();
+//     res.send(sales);
+//   } catch (error) {
+//     res.status(500).send({ message: 'Internal Server Error' });
+//   }
+// });
 
 
 
@@ -515,7 +559,12 @@ app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
 // Get total paid and pending revenue for seller
 app.get('/seller-sales/:email', verifyToken, async (req, res) => {
   const sellerEmail = req.decoded.seller_email;
-  console.log(sellerEmail);
+  // console.log(sellerEmail);
+   
+
+  const users = await userCollection.estimatedDocumentCount();
+  const menuItems = await categoryCollection.estimatedDocumentCount();
+  const orders = await paymentCollection.estimatedDocumentCount();
 
   try {
       const paidResult = await paymentCollection.aggregate([
@@ -559,7 +608,14 @@ app.get('/seller-sales/:email', verifyToken, async (req, res) => {
       const totalPaid = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
       const totalPending = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
 
-      res.send({ totalPaid, totalPending });
+      res.send({
+         totalPaid,
+         totalPending,
+         orders,
+         users,
+         menuItems,
+         
+       });
   } catch (error) {
       console.error('Error fetching sales data:', error);
       res.status(500).send({ error: 'Internal Server Error' });
@@ -632,6 +688,38 @@ app.get("/seller-payments/:email", async (req, res) => {
     res.status(500).send({ error: 'Internal Server Error' });
   }
 });
+
+
+
+//for seller payment history
+app.get('/seller/:email', verifyToken, async (req, res) => {
+  const sellerEmail = req.decoded.seller_email;
+
+  try {
+    const payments = await paymentCollection.find({ sellerEmail }).toArray();
+    let totalPaid = 0;
+    let totalPending = 0;
+
+    payments.forEach(payment => {
+      const price = parseFloat(payment.price);
+      if (payment.status === 'paid') {
+        totalPaid += price;
+      } else if (payment.status === 'pending') {
+        totalPending += price;
+      }
+    });
+
+    res.send({
+      totalPaid,
+      totalPending,
+      payments 
+    });
+  } catch (error) {
+    console.error('Error fetching sales data:', error);
+    res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
 
 
 
