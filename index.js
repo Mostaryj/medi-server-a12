@@ -547,7 +547,7 @@ app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
 
 
 
-// Get total paid and pending revenue for seller
+// Get total paid and pending total for seller
 app.get('/seller-sales/:email', verifyToken, async (req, res) => {
   const sellerEmail = req.decoded.seller_email;
   // console.log(sellerEmail);
