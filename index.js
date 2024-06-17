@@ -549,8 +549,8 @@ app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
 
 // Get total paid and pending total for seller
 app.get('/seller-sales/:email', verifyToken, async (req, res) => {
-  const sellerEmail = req.decoded.seller_email;
-  // console.log(sellerEmail);
+  const sellerEmail = req.params.email;
+  //  console.log(sellerEmail);
    
 
   const users = await userCollection.estimatedDocumentCount();
@@ -561,7 +561,7 @@ app.get('/seller-sales/:email', verifyToken, async (req, res) => {
       const paidResult = await paymentCollection.aggregate([
           {
               $match: {
-                  sellerEmail,
+                seller_email: sellerEmail,
                   status: 'paid' 
               }
           },
@@ -580,7 +580,7 @@ app.get('/seller-sales/:email', verifyToken, async (req, res) => {
       const pendingResult = await paymentCollection.aggregate([
           {
               $match: {
-                  sellerEmail,
+                seller_email: sellerEmail,
                   status: 'pending' 
               }
           },
@@ -614,65 +614,13 @@ app.get('/seller-sales/:email', verifyToken, async (req, res) => {
 });
 
 
-// app.get('/seller-sales', verifyToken, async (req, res) => {
-//   const sellerEmail = req.decoded.seller_email;
-//   try {
-//       const paidResult = await paymentCollection.aggregate([
-//           {
-//               $match: {
-//                   sellerEmail,
-//                   status: 'paid' 
-//               }
-//           },
-//           {
-//               $group: {
-//                   _id: null,
-//                   totalPaid: {
-//                       $sum: {
-//                           $toDouble: '$price' 
-//                       }
-//                   }
-//               }
-//           }
-//       ]).toArray();
-
-//       const pendingResult = await paymentCollection.aggregate([
-//           {
-//               $match: {
-//                   sellerEmail,
-//                   status: 'pending' 
-//               }
-//           },
-//           {
-//               $group: {
-//                   _id: null,
-//                   totalPending: {
-//                       $sum: {
-//                           $toDouble: '$price' 
-//                       }
-//                   }
-//               }
-//           }
-//       ]).toArray();
-
-//       const totalPaid = paidResult.length > 0 ? paidResult[0].totalPaid : 0;
-//       const totalPending = pendingResult.length > 0 ? pendingResult[0].totalPending : 0;
-
-//       res.send({ totalPaid, totalPending });
-//   } catch (error) {
-//       console.error('Error fetching sales data:', error);
-//       res.status(500).send({ error: 'Internal Server Error' });
-//   }
-// });
-
-
 
 
 //  payments for a specific seller
 app.get("/seller-payments/:email", async (req, res) => {
-  const { seller_email } = req.params; 
+  const sellerEmail = req.params.email; 
   try {
-    const payments = await paymentCollection.find({ sellerEmail: seller_email }).toArray();
+    const payments = await paymentCollection.find({ seller_email: sellerEmail }).toArray();
     res.send(payments);
   } catch (error) {
     console.error('Error fetching seller payments:', error);
@@ -682,35 +630,19 @@ app.get("/seller-payments/:email", async (req, res) => {
 
 
 
-//for seller payment history
-app.get('/seller/:email', verifyToken, async (req, res) => {
-  const sellerEmail = req.decoded.seller_email;
 
+
+app.get('/pay/:email', async (req, res) => {
+  const email = req.params.email; 
   try {
-    const payments = await paymentCollection.find({ sellerEmail }).toArray();
-    let totalPaid = 0;
-    let totalPending = 0;
-
-    payments.forEach(payment => {
-      const price = parseFloat(payment.price);
-      if (payment.status === 'paid') {
-        totalPaid += price;
-      } else if (payment.status === 'pending') {
-        totalPending += price;
-      }
-    });
-
-    res.send({
-      totalPaid,
-      totalPending,
-      payments 
-    });
+    const payments = await paymentCollection.find({ email }).toArray();
+    // console.log(payments, '719');
+    res.send(payments);
   } catch (error) {
-    console.error('Error fetching sales data:', error);
-    res.status(500).send({ error: 'Internal Server Error' });
+    console.error('Error fetching payments:', error);  
+    res.status(500).send({ message: 'Internal Server Error' });
   }
 });
-
 
 
 
