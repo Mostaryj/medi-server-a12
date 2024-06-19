@@ -26,7 +26,7 @@ app.use('/uploads', express.static(uploadsDir));
 //middleware
 app.use(
   cors({
-   origin: ['http://localhost:5173',
+   origin: ['http://localhost:5175',
            'https://medi-corner-22.web.app',
            'https://medi-corner-22.firebaseapp.com'],
 })
@@ -175,6 +175,23 @@ app.patch("/slider/pending/:id",verifyToken,verifyAdmin,async(req,res)=>{
       admin = user?.role === 'admin';
     }
     res.send({admin});
+} )
+
+   //seller api edited by boss
+   app.get('/users/seller/:email', verifyToken, async(req, res) => {
+    const email = req.params.email;
+
+    if(email !== req.decoded.email){
+      return res.status(403).send({message: 'forbidden access'})
+
+    }
+    const query = {email: email}
+    const user = await userCollection.findOne(query);
+    let seller = false;
+    if(user){
+      seller = user?.role === 'seller';
+    }
+    res.send({seller});
 } )
 
 
