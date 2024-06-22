@@ -26,7 +26,7 @@ app.use('/uploads', express.static(uploadsDir));
 //middleware
 app.use(
   cors({
-   origin: ['http://localhost:5175',
+   origin: ['http://localhost:5173',
            'https://medi-corner-22.web.app',
            'https://medi-corner-22.firebaseapp.com'],
 })
