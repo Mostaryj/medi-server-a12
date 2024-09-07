@@ -30,7 +30,7 @@ app.use(
   cors({
    origin: ['http://localhost:5173',
            'https://medi-corner-22.web.app',
-           "https://medi-corner-22web-3fne7zvrn-mostary-jahans-projects.vercel.app",
+           "https://medi-corner-22.vercel.app",
            'https://medi-corner-22.firebaseapp.com'],
 })
 );
