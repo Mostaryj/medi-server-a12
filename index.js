@@ -13,6 +13,8 @@ const fs = require('fs');
 const path = require('path');
 
 
+
+
 // Ensure the uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -28,6 +30,7 @@ app.use(
   cors({
    origin: ['http://localhost:5173',
            'https://medi-corner-22.web.app',
+           "https://medi-corner-22web-3fne7zvrn-mostary-jahans-projects.vercel.app",
            'https://medi-corner-22.firebaseapp.com'],
 })
 );
@@ -35,6 +38,7 @@ app.use(express.json());
 //
 app.use(express.urlencoded({ extended: true })); 
 app.use(fileUpload());
+
 
 
 
@@ -50,7 +54,9 @@ const client = new MongoClient(uri, {
   },
 });
 
-//
+
+
+
 
 
 
@@ -100,6 +106,8 @@ const verifyToken = (req, res, next) => {
   }
   next();
 }
+
+
 
 
 
